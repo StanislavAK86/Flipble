@@ -1,0 +1,76 @@
+# Зависимости (если используете npm/node)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Файлы окружения и конфигурации IDE
+.env
+.env.local
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Логи
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Временные файлы ОС
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Результаты сборки
+dist/
+build/
+out/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Файлы для отладки
+*.tmp
+*.temp
+*.cache
+
+# Если используете Python (например, для бэкенда)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Если используете C# / .NET
+bin/
+obj/
+*.user
+*.lock.json
+
+# Если используете Java
+*.class
+*.jar
+*.war
+*.ear
+target/
+
+# Служебные файлы Git
+*.orig
+*.BACKUP
+*.BASE
+*.LOCAL
+*.REMOTE
+
+# Файлы, создаваемые игрой/сервером (если генерируются)
+saves/
+logs/
+temp/
+*.db
+*.sqlite
