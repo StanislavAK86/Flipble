@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: spornaya_postgres
+    environment:
+      POSTGRES_DB: spornaya_db
+      POSTGRES_USER: spornaya_user
+      POSTGRES_PASSWORD: spornaya_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spornaya_user -d spornaya_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spornaya_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spornaya_backend
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DB_NAME: spornaya_db
+      DB_USER: spornaya_user
+      DB_PASSWORD: spornaya_password
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEBUG: 'False'
+    volumes:
+      - ./:/app
+      - static_volume:/app/static
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - spornaya_network
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: spornaya_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - spornaya_network
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+
+networks:
+  spornaya_network:
+    driver: bridge
