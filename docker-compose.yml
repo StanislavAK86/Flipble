@@ -3,65 +3,80 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: spornaya_postgres
+    container_name: flipble_postgres
+    restart: always
     environment:
-      POSTGRES_DB: spornaya_db
-      POSTGRES_USER: spornaya_user
-      POSTGRES_PASSWORD: spornaya_password
-      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: flipble_db
+      POSTGRES_USER: flipble_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    networks:
+      - flipble_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U spornaya_user -d spornaya_db"]
+      test: ["CMD-SHELL", "pg_isready -U flipble_user -d flipble_db"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - spornaya_network
 
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: spornaya_backend
+    container_name: flipble_backend
+    restart: always
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
-      DB_NAME: spornaya_db
-      DB_USER: spornaya_user
-      DB_PASSWORD: spornaya_password
+      DB_NAME: flipble_db
+      DB_USER: flipble_user
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_HOST: postgres
       DB_PORT: 5432
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       DEBUG: 'False'
+      ALLOWED_HOSTS: 'flipble.it-atp.ru,localhost,127.0.0.1'
+      CSRF_TRUSTED_ORIGINS: 'https://flipble.it-atp.ru,http://flipble.it-atp.ru'
     volumes:
-      - ./:/app
       - static_volume:/app/static
       - media_volume:/app/media
-    ports:
-      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - spornaya_network
+      - flipble_network
     command: >
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2"
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.frontend
-    container_name: spornaya_frontend
+    container_name: flipble_frontend
+    restart: always
+    environment:
+      VITE_API_URL: /api
+    networks:
+      - flipble_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: flipble_nginx
+    restart: always
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_volume:/static:ro
+      - media_volume:/media:ro
+      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
       - backend
+      - frontend
     networks:
-      - spornaya_network
+      - flipble_network
 
 volumes:
   postgres_data:
@@ -69,5 +84,5 @@ volumes:
   media_volume:
 
 networks:
-  spornaya_network:
+  flipble_network:
     driver: bridge
