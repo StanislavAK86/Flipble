@@ -19,6 +19,18 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: flipble_redis
+    restart: always
+    networks:
+      - flipble_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -32,6 +44,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_HOST: postgres
       DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       DEBUG: 'False'
       ALLOWED_HOSTS: 'flipble.it-atp.ru,localhost,127.0.0.1'
@@ -42,8 +56,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - flipble_network
+    ports:
+      - "8000:8000"
     command: >
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
@@ -52,31 +70,15 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.frontend
+      dockerfile: Dockerfile
     container_name: flipble_frontend
     restart: always
     environment:
       VITE_API_URL: /api
     networks:
       - flipble_network
-
-  nginx:
-    image: nginx:alpine
-    container_name: flipble_nginx
-    restart: always
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - static_volume:/static:ro
-      - media_volume:/media:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - backend
-      - frontend
-    networks:
-      - flipble_network
+      - "5173:80"
 
 volumes:
   postgres_data:

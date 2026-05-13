@@ -107,13 +107,48 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-        'TIMEOUT': 86400,  # 24 часа
+# Настройки кэша с Redis
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+REDIS_PORT = os.getenv('REDIS_PORT', '6379')
+
+if REDIS_HOST:
+    try:
+        # Пробуем использовать Redis
+        CACHES = {
+            'default': {
+                'BACKEND': 'django_redis.cache.RedisCache',
+                'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/1',
+                'OPTIONS': {
+                    'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                    'CONNECTION_POOL_CLASS': 'redis.BlockingConnectionPool',
+                    'CONNECTION_POOL_CLASS_KWARGS': {
+                        'max_connections': 50,
+                        'timeout': 20,
+                    },
+                    'PICKLE_VERSION': -1,
+                },
+                'KEY_PREFIX': 'flipble',
+                'TIMEOUT': 86400,  # 24 часа
+            }
+        }
+        print(f"Используется Redis кэш: {REDIS_HOST}:{REDIS_PORT}")
+    except Exception as e:
+        print(f"Ошибка подключения к Redis: {e}, использую LocMemCache")
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+                'LOCATION': 'unique-snowflake',
+                'TIMEOUT': 86400,
+            }
+        }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+            'TIMEOUT': 86400,
+        }
     }
-}
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

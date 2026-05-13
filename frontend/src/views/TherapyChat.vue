@@ -90,6 +90,11 @@ let waitingForDilemma = true
 let optionA = '', optionB = ''
 
 onMounted(() => {
+  const savedSessionId = localStorage.getItem("therapy_session_id");
+  if (savedSessionId && !waitingForDilemma) {
+    sessionId.value = savedSessionId;
+    console.log("Восстановлена сессия:", savedSessionId);
+  }
   messages.value.push({
     sender: 'bot',
     text: 'Привет! Я AI-психолог. Напиши свою дилемму в формате:\n\n**Вариант А** vs **Вариант Б**\n\nНапример: "Уйти с работы vs Остаться"',
@@ -99,6 +104,13 @@ onMounted(() => {
 })
 
 async function sendMessage() {
+  console.log("sendMessage: sessionId.value =", sessionId.value);
+  console.log("sendMessage: localStorage =", localStorage.getItem("therapy_session_id"));
+  if (!sessionId.value) {
+    sessionId.value = Math.random().toString(36).substring(2, 15);
+    console.log("sessionId null, генерируем новый");
+    sessionId.value = Math.random().toString(36).substring(2, 15);
+  }
   if (!userInput.value.trim() || isTyping.value || isFinished.value) return
   
   const message = userInput.value.trim()
@@ -199,12 +211,17 @@ function parseDilemma(message) {
 }
 
 async function startTherapySession() {
+  console.log("startTherapySession ВЫЗВАН");
+  console.log("Старт терапии. optionA:", optionA, "optionB:", optionB);
   try {
     const response = await axios.post(`${API_URL}/therapy/start/`, {
       option_a: optionA,
       option_b: optionB
     })
     sessionId.value = response.data.session_id
+    localStorage.setItem("therapy_session_id", response.data.session_id);
+  console.log("СОХРАНЯЕМ session_id:", response.data.session_id);
+  console.log("session_id сохранён:", sessionId.value);
     waitingForDilemma = false
     userAnswersCount.value = 0
   } catch (error) {
@@ -609,3 +626,27 @@ function scrollToBottom() {
   transform: scale(1.02);
 }
 </style>
+
+// Функция генерации session_id на клиенте
+}
+
+// При монтировании компонента — восстанавливаем session_id
+onMounted(() => {
+  const savedSessionId = localStorage.getItem("therapy_session_id");
+  if (savedSessionId && !waitingForDilemma) {
+    sessionId.value = savedSessionId;
+    console.log("Восстановлена сессия:", savedSessionId);
+  }
+  const savedSessionId = localStorage.getItem('therapy_session_id');
+  if (savedSessionId) {
+    sessionId.value = savedSessionId;
+    waitingForDilemma = false;
+    console.log('Восстановлена сессия:', savedSessionId);
+  }
+  // ... существующий код onMounted
+})
+
+// В startTherapySession() — сохраняем session_id
+// После строки sessionId.value = response.data.session_id
+    localStorage.setItem("therapy_session_id", response.data.session_id);
+localStorage.setItem('therapy_session_id', response.data.session_id);
