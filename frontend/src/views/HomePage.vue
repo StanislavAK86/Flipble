@@ -251,9 +251,13 @@ function resetAndKeepMode() {
 }
 
 .mode-buttons {
-  display: grid;
+  display: flex;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.75rem;
+  grid-auto-flow: row;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-around;
 }
 
 .mode-btn {
@@ -276,7 +280,7 @@ function resetAndKeepMode() {
 }
 
 .mode-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgb(93, 45, 124);
   transform: scale(1.02);
 }
 
