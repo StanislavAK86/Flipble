@@ -19,7 +19,7 @@
         <div v-for="(msg, idx) in messages" :key="idx" :class="['message', msg.sender]">
           <div class="message-avatar">{{ msg.sender === 'user' ? '👤' : '🧠' }}</div>
           <div class="message-bubble">
-            <div class="message-text">{{ msg.text }}</div>
+            <div class="message-text" v-html="msg.text.replace(/\n/g, '<br>')"></div>
             <div class="message-time">{{ msg.time }}</div>
           </div>
         </div>
@@ -53,7 +53,7 @@
       
       <div v-if="isFinished && conclusion" class="conclusion-card">
         <div class="conclusion-icon">📋</div>
-        <div class="conclusion-text" v-html="conclusion"></div>
+        <div class="conclusion-text" v-html="conclusion.replace(/\n/g, '<br>')"></div>
         <div class="conclusion-buttons">
           <button @click="startNewSession" class="new-session-btn">
             🔄 Новая консультация
@@ -90,11 +90,14 @@ let waitingForDilemma = true
 let optionA = '', optionB = ''
 
 onMounted(() => {
-  const savedSessionId = localStorage.getItem("therapy_session_id");
+  // Восстанавливаем сессию только если она есть и мы не в режиме ожидания дилеммы
+  const savedSessionId = localStorage.getItem('therapy_session_id')
   if (savedSessionId && !waitingForDilemma) {
-    sessionId.value = savedSessionId;
-    console.log("Восстановлена сессия:", savedSessionId);
+    sessionId.value = savedSessionId
+    console.log('Восстановлена сессия:', savedSessionId)
   }
+  
+  // Добавляем приветственное сообщение
   messages.value.push({
     sender: 'bot',
     text: 'Привет! Я AI-психолог. Напиши свою дилемму в формате:\n\n**Вариант А** vs **Вариант Б**\n\nНапример: "Уйти с работы vs Остаться"',
@@ -104,13 +107,6 @@ onMounted(() => {
 })
 
 async function sendMessage() {
-  console.log("sendMessage: sessionId.value =", sessionId.value);
-  console.log("sendMessage: localStorage =", localStorage.getItem("therapy_session_id"));
-  if (!sessionId.value) {
-    sessionId.value = Math.random().toString(36).substring(2, 15);
-    console.log("sessionId null, генерируем новый");
-    sessionId.value = Math.random().toString(36).substring(2, 15);
-  }
   if (!userInput.value.trim() || isTyping.value || isFinished.value) return
   
   const message = userInput.value.trim()
@@ -124,6 +120,7 @@ async function sendMessage() {
   userInput.value = ''
   scrollToBottom()
   
+  // Если ждём дилемму от пользователя
   if (waitingForDilemma) {
     parseDilemma(message)
     return
@@ -211,17 +208,19 @@ function parseDilemma(message) {
 }
 
 async function startTherapySession() {
-  console.log("startTherapySession ВЫЗВАН");
-  console.log("Старт терапии. optionA:", optionA, "optionB:", optionB);
+  console.log('startTherapySession вызван. optionA:', optionA, 'optionB:', optionB)
+  
   try {
     const response = await axios.post(`${API_URL}/therapy/start/`, {
       option_a: optionA,
       option_b: optionB
     })
+    
     sessionId.value = response.data.session_id
-    localStorage.setItem("therapy_session_id", response.data.session_id);
-  console.log("СОХРАНЯЕМ session_id:", response.data.session_id);
-  console.log("session_id сохранён:", sessionId.value);
+    // Сохраняем session_id в localStorage
+    localStorage.setItem('therapy_session_id', response.data.session_id)
+    console.log('Сохранён session_id:', response.data.session_id)
+    
     waitingForDilemma = false
     userAnswersCount.value = 0
   } catch (error) {
@@ -256,6 +255,7 @@ async function getConclusion() {
     isFinished.value = true
     conclusionAdded.value = true
     
+    // Удаляем сообщение "Анализирую..." и добавляем результат
     messages.value.pop()
     messages.value.push({
       sender: 'bot',
@@ -268,12 +268,9 @@ async function getConclusion() {
     messages.value.pop()
     messages.value.push({
       sender: 'bot',
-      text: 'Извини, произошла ошибка при анализе.',
+      text: 'Извини, произошла ошибка при анализе. Попробуй ещё раз позже.',
       time: getCurrentTime()
     })
-    conclusion.value = '**Вывод:** Доверься себе\n**Совет:** Сделай маленький шаг\n**Поддержка:** Ты справишься!'
-    isFinished.value = true
-    conclusionAdded.value = true
   } finally {
     isTyping.value = false
     scrollToBottom()
@@ -281,6 +278,7 @@ async function getConclusion() {
 }
 
 function startNewSession() {
+  // Очищаем все данные
   conclusion.value = ''
   conclusionAdded.value = false
   isFinished.value = false
@@ -292,9 +290,13 @@ function startNewSession() {
   optionB = ''
   userAnswersCount.value = 0
   
+  // Удаляем сохранённую сессию
+  localStorage.removeItem('therapy_session_id')
+  
+  // Добавляем приветственное сообщение
   messages.value.push({
     sender: 'bot',
-    text: 'Привет! Напиши свою новую дилемму в формате:\n\n**Вариант А** vs **Вариант Б**',
+    text: 'Привет! Напиши свою новую дилемму в формате:\n\n**Вариант А** vs **Вариант Б**\n\nНапример: "Уйти с работы vs Остаться"',
     time: getCurrentTime()
   })
   scrollToBottom()
@@ -304,7 +306,14 @@ function shareResult() {
   const text = `🧠 AI-психолог помог мне с выбором!\n\nДилемма: ${optionA} или ${optionB}\n\n${conclusion.value}`
   
   if (navigator.share) {
-    navigator.share({ title: 'Спорная монетка - AI психолог', text: text })
+    navigator.share({ 
+      title: 'Спорная монетка - AI психолог', 
+      text: text 
+    }).catch(() => {
+      // Если пользователь отменил шаринг, просто копируем
+      navigator.clipboard.writeText(text)
+      alert('Результат скопирован в буфер обмена!')
+    })
   } else {
     navigator.clipboard.writeText(text)
     alert('Результат скопирован в буфер обмена!')
@@ -377,6 +386,11 @@ function scrollToBottom() {
   padding: 0.5rem 1rem;
   border-radius: 2rem;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background: rgba(255,255,255,0.3);
 }
 
 .header-icon {
@@ -599,7 +613,6 @@ function scrollToBottom() {
 .new-session-btn, .share-btn {
   flex: 1;
   padding: 0.75rem;
-  margin-top: 0;
   border: none;
   border-radius: 2rem;
   font-size: 1rem;
@@ -626,27 +639,3 @@ function scrollToBottom() {
   transform: scale(1.02);
 }
 </style>
-
-// Функция генерации session_id на клиенте
-}
-
-// При монтировании компонента — восстанавливаем session_id
-onMounted(() => {
-  const savedSessionId = localStorage.getItem("therapy_session_id");
-  if (savedSessionId && !waitingForDilemma) {
-    sessionId.value = savedSessionId;
-    console.log("Восстановлена сессия:", savedSessionId);
-  }
-  const savedSessionId = localStorage.getItem('therapy_session_id');
-  if (savedSessionId) {
-    sessionId.value = savedSessionId;
-    waitingForDilemma = false;
-    console.log('Восстановлена сессия:', savedSessionId);
-  }
-  // ... существующий код onMounted
-})
-
-// В startTherapySession() — сохраняем session_id
-// После строки sessionId.value = response.data.session_id
-    localStorage.setItem("therapy_session_id", response.data.session_id);
-localStorage.setItem('therapy_session_id', response.data.session_id);
