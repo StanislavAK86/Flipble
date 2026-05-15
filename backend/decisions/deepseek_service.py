@@ -269,7 +269,7 @@ class DeepSeekService:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.8,
-                max_tokens=300
+                max_tokens=500
             )
             result = response.choices[0].message.content.strip()
             print(f"DeepSeek вывод: {result[:200]}...")
